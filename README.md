@@ -80,7 +80,7 @@ services:
         --lastname Admin \
         --role Admin \
         --email admin@example.com \
-        --password admin && airflow scheduler & airflow webserver"
+        --password admin && airflow webserver & airflow scheduler"
     networks:
       - airflow_net
 
