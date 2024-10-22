@@ -1,4 +1,4 @@
-# Apache Airflow Docker Setup Guide
+# Apache Airflow Setup 
 
 Este guia fornecerá um passo a passo extremamente detalhado para configurar, criar e desenvolver o serviço do Apache Airflow usando Docker no Windows 10. Todas as etapas serão minuciosamente descritas, incluindo scripts, boas práticas e códigos necessários para execução. Ao final, pergunte se todas as etapas foram aprovadas.
 
@@ -13,15 +13,47 @@ Antes de começarmos, certifique-se de ter os seguintes pré-requisitos:
 - **Visual Studio Code (VSCode):** Recomendado para editar arquivos do projeto e instalar extensões como Docker e Python para facilitar o desenvolvimento.
 - **Python 3.8+**: Para realizar testes e criar scripts adicionais fora do contêiner do Airflow.
 
-## Etapa 1: Clonar o Repositório do GitHub
+## Etapa 1: Criar Ambiente Virtual e Clonar o Repositório do GitHub
 
-Comece clonando o repositório `Apache-Airflow` do GitHub para o seu ambiente local:
+1. **Criar o Ambiente Virtual**
 
-```sh
-# No terminal (Git Bash ou Ubuntu no WSL)
-git clone https://github.com/SEU_USUARIO/Apache-Airflow.git
-cd Apache-Airflow
-```
+   Vamos criar um ambiente virtual Python para garantir que todas as dependências estejam isoladas e que não haja conflitos com outras instalações Python em seu sistema.
+
+   No diretório raiz do projeto, crie um ambiente virtual usando o comando:
+
+   ```sh
+   python -m venv airflow_venv
+   ```
+
+2. **Ativar o Ambiente Virtual**
+
+   Ative o ambiente virtual:
+   - **Windows**:
+     ```sh
+     .\airflow_venv\Scripts\activate
+     ```
+   - **Linux/WSL**:
+     ```sh
+     source airflow_venv/bin/activate
+     ```
+
+3. **Instalar Dependências**
+
+   Atualize o `pip` e instale o `wheel`:
+
+   ```sh
+   pip install --upgrade pip
+   pip install wheel
+   ```
+
+4. **Clonar o Repositório do GitHub**
+
+   Agora clone o repositório `Apache-Airflow` do GitHub para o seu ambiente local:
+
+   ```sh
+   git clone https://github.com/SEU_USUARIO/Apache-Airflow.git
+   cd Apache-Airflow
+   ```
 
 ## Etapa 2: Estrutura do Projeto
 
@@ -40,32 +72,46 @@ mkdir dags logs plugins config postgres-data credentials
 
 ## Etapa 2.1: Criar o Arquivo airflow.cfg Personalizado
 
-O arquivo `airflow.cfg` contém configurações importantes para o funcionamento do Airflow. Vamos criar um arquivo personalizado:
+O arquivo `airflow.cfg` contém configurações importantes para o funcionamento do Airflow. Vamos criar um arquivo personalizado para otimizar o desempenho e ajustar as configurações conforme suas necessidades específicas:
 
-1. Copie o arquivo padrão de configuração do Airflow de dentro do contêiner:
+1. **Copiar o Arquivo Padrão de Configuração:** Primeiro, copie o arquivo padrão de configuração do Airflow de dentro do contêiner:
 
    ```sh
    docker cp airflow_webserver_1:/opt/airflow/airflow.cfg ./config/airflow.cfg
    ```
 
-2. Edite o arquivo `config/airflow.cfg` conforme necessário, ajustando parâmetros como:
-   - `parallelism`: Número máximo de tarefas que podem ser executadas simultaneamente.
-   - `load_examples`: Definir como `False` para evitar o carregamento dos DAGs de exemplo.
-   - `executor`: Certifique-se de que está definido como `CeleryExecutor`.
+2. **Editar o Arquivo airflow.cfg:** Edite o arquivo `config/airflow.cfg` para ajustar os seguintes parâmetros:
 
-3. Atualize o `docker-compose.yml` para montar este arquivo no contêiner:
+   - **`parallelism`**: Define o número máximo de tarefas que podem ser executadas simultaneamente por toda a instância do Airflow. Ajuste este valor com base na capacidade de recursos disponíveis (ex.: `parallelism = 16`).
+   
+   - **`dag_concurrency`**: Número máximo de tarefas que podem ser executadas simultaneamente em um DAG específico. Defina um valor adequado para evitar sobrecarga (ex.: `dag_concurrency = 8`).
+
+   - **`max_active_runs_per_dag`**: Controla quantas execuções de um DAG podem ser realizadas simultaneamente. Ajuste conforme necessário para evitar conflitos (ex.: `max_active_runs_per_dag = 2`).
+
+   - **`load_examples`**: Definir como `False` para evitar o carregamento dos DAGs de exemplo que vêm por padrão com o Airflow, especialmente em ambientes de produção.
+
+   - **`executor`**: Certifique-se de que está definido como `CeleryExecutor` para possibilitar o uso de vários workers e melhorar a escalabilidade (ex.: `executor = CeleryExecutor`).
+
+   - **`sql_alchemy_pool_size`**: Define o tamanho da pool de conexões com o banco de dados. Aumente este valor se houver muitas conexões simultâneas (ex.: `sql_alchemy_pool_size = 10`).
+
+   - **`worker_concurrency`**: Número de tarefas que cada worker pode processar simultaneamente. O valor ideal depende dos recursos de CPU/memória disponíveis (ex.: `worker_concurrency = 4`).
+
+   - **`smtp_host`, `smtp_user`, `smtp_password`, `smtp_port`, `smtp_mail_from`**: Configure os parâmetros SMTP se desejar que o Airflow envie notificações por e-mail em caso de falha de tarefas ou outras situações.
+
+   - **`default_timezone`**: Defina o fuso horário padrão do Airflow para garantir que os DAGs sejam executados em horários consistentes (ex.: `default_timezone = UTC`).
+
+3. **Montar o Arquivo de Configuração no Contêiner:** Atualize o `docker-compose.yml` para montar este arquivo no contêiner do Airflow:
 
    ```yaml
        volumes:
          - ./config/airflow.cfg:/opt/airflow/airflow.cfg
    ```
 
-- **dags/**: Contém seus DAGs (gráficos acíclicos direcionados).
-- **logs/**: Contém os arquivos de log do Airflow.
-- **plugins/**: Contém plugins personalizados para o Airflow.
-- **config/**: Contém arquivos de configuração adicionais, como `airflow.cfg` personalizado.
-- **postgres-data/**: Armazena os dados do Postgres.
-- **credentials/**: Contém as credenciais necessárias, como `bigquery_keyfile.json`.
+4. **Boas Práticas ao Configurar airflow.cfg:**
+   - Sempre mantenha um backup do arquivo original antes de fazer alterações significativas.
+   - Ajuste os parâmetros de acordo com a capacidade de hardware disponível e as necessidades de escalabilidade do projeto.
+   - Evite valores excessivamente altos para `parallelism` e `worker_concurrency`, pois podem sobrecarregar o banco de dados ou causar problemas de estabilidade.
+   - Em ambientes de produção, configure as credenciais e parâmetros de segurança, como `fernet_key` (para criptografar variáveis de conexão sensíveis).
 
 ## Etapa 3: Crie o Arquivo docker-compose.yml
 
@@ -152,9 +198,11 @@ networks:
 
 Este arquivo `docker-compose.yml` define os serviços do Airflow (webserver, scheduler e worker), além do banco de dados PostgreSQL e do broker Redis para o CeleryExecutor. Certifique-se de substituir `bigquery_keyfile.json` pelas suas credenciais do Google Cloud se necessário.
 
-## Etapa 4: Inicializar o Docker Compose
+## Etapa 4: Inicializar o Docker Compose e Configurar o Ambiente
 
-Agora é hora de inicializar o Airflow com Docker Compose. No terminal, execute:
+Agora é hora de inicializar o Airflow com Docker Compose. Antes de fazer isso, certifique-se de que o ambiente virtual criado esteja ativado para garantir que todas as dependências locais estejam disponíveis.
+
+No terminal, execute:
 
 ```sh
 docker-compose up -d
@@ -303,72 +351,4 @@ docker-compose down -v
 
 ## Solução de Problemas Comuns
 
-- **Erro "Port already in use"**: Verifique se não há outro processo usando a porta 8080.
-- **Problemas de Permissão**: Execute o Docker Desktop como administrador.
-- **Recursos do Sistema**: Certifique-se de que sua configuração de Docker Desktop aloca memória suficiente para o contêiner.
-- **Falha ao Iniciar o Scheduler**: Verifique as dependências e certifique-se de que o banco de dados está acessível.
-
-## Etapa 13: Subir o Repositório para o GitHub
-
-Depois de garantir que tudo está funcionando, commit e envie as mudanças para o seu repositório no GitHub:
-
-```sh
-git add .
-git commit -m "Configuração do Apache Airflow com Docker"
-git push origin main
-```
-
-## Etapa 14: Comandos do Docker para Atualização, Remoção e Alteração
-
-Aqui estão alguns comandos úteis para gerenciar os contêineres Docker:
-
-- **Atualizar um Serviço do Docker Compose**:
-
-```sh
-docker-compose pull
-# Atualiza a imagem e reinicia o serviço
-docker-compose up -d
-```
-
-- **Remover Contêineres e Volumes**:
-
-```sh
-# Parar e remover todos os contêineres
-docker-compose down
-
-# Parar, remover todos os contêineres e volumes associados
-docker-compose down -v
-```
-
-- **Remover Imagens**:
-
-```sh
-# Listar todas as imagens Docker
-docker images
-
-# Remover uma imagem específica
-docker rmi <IMAGE_ID>
-```
-
-- **Alterar Configurações e Reiniciar**:
-
-Se você fizer alterações no `docker-compose.yml`, precisará reiniciar os contêineres:
-
-```sh
-docker-compose down
-# Em seguida, subir novamente
-docker-compose up -d
-```
-
-- **Acessar o Shell do Contêiner**:
-
-```sh
-docker exec -it airflow_webserver_1 /bin/bash
-```
-
-## Etapa Final: Aprovado?
-
-Estas foram todas as etapas para configurar e desenvolver o Apache Airflow usando Docker no Windows 10, seguindo boas práticas de engenharia de dados. Agora gostaria de saber se o passo a passo está aprovado ou se precisa de algum ajuste.
-
-## Licença
-Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para mais detalhes.
+- **Erro "Port already in use"**: Verifique se não há
