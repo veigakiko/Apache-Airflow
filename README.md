@@ -28,70 +28,129 @@ cd Apache-Airflow
 Crie uma estrutura de pastas para organizar os arquivos do projeto. No diretório `Apache-Airflow`, crie as pastas:
 
 ```sh
-mkdir dags logs plugins config
+mkdir dags logs plugins config postgres-data credentials
 ```
 
 - **dags/**: Contém seus DAGs (gráficos acíclicos direcionados).
 - **logs/**: Contém os arquivos de log do Airflow.
 - **plugins/**: Contém plugins personalizados para o Airflow.
 - **config/**: Contém arquivos de configuração adicionais, como `airflow.cfg` personalizado.
+- **postgres-data/**: Armazena os dados do Postgres.
+- **credentials/**: Contém as credenciais necessárias, como `bigquery_keyfile.json`.
+
+## Etapa 2.1: Criar o Arquivo airflow.cfg Personalizado
+
+O arquivo `airflow.cfg` contém configurações importantes para o funcionamento do Airflow. Vamos criar um arquivo personalizado:
+
+1. Copie o arquivo padrão de configuração do Airflow de dentro do contêiner:
+
+   ```sh
+   docker cp airflow_webserver_1:/opt/airflow/airflow.cfg ./config/airflow.cfg
+   ```
+
+2. Edite o arquivo `config/airflow.cfg` conforme necessário, ajustando parâmetros como:
+   - `parallelism`: Número máximo de tarefas que podem ser executadas simultaneamente.
+   - `load_examples`: Definir como `False` para evitar o carregamento dos DAGs de exemplo.
+   - `executor`: Certifique-se de que está definido como `CeleryExecutor`.
+
+3. Atualize o `docker-compose.yml` para montar este arquivo no contêiner:
+
+   ```yaml
+       volumes:
+         - ./config/airflow.cfg:/opt/airflow/airflow.cfg
+   ```
+
+- **dags/**: Contém seus DAGs (gráficos acíclicos direcionados).
+- **logs/**: Contém os arquivos de log do Airflow.
+- **plugins/**: Contém plugins personalizados para o Airflow.
+- **config/**: Contém arquivos de configuração adicionais, como `airflow.cfg` personalizado.
+- **postgres-data/**: Armazena os dados do Postgres.
+- **credentials/**: Contém as credenciais necessárias, como `bigquery_keyfile.json`.
 
 ## Etapa 3: Crie o Arquivo docker-compose.yml
 
 No diretório raiz do projeto, crie um arquivo chamado `docker-compose.yml`. Este arquivo define os serviços necessários para executar o Airflow:
 
 ```yaml
+version: '3'
+
 services:
   postgres:
     image: postgres:13
-    container_name: postgres_airflow
-    restart: always
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - airflow_net
+      - ./postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"  # Adicione esta linha para expor a porta 5432
 
-  airflow:
-    image: apache/airflow:2.5.1
-    container_name: airflow_container
-    restart: always
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+
+  webserver:
+    image: apache/airflow:2.5.0
     environment:
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__CORE__SQL_ALCHEMY_CONN: 'postgresql+psycopg2://airflow:airflow@postgres_airflow:5432/airflow'
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
+      GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/credentials/bigquery_keyfile.json
+    ports:
+      - "8080:8080"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
-    ports:
-      - 8080:8080
+      - ./credentials:/opt/airflow/credentials # Volume para as credenciais
+    command: bash -c "pip install apache-airflow-providers-google requests beautifulsoup4 pandas && airflow db upgrade && exec airflow webserver"
     depends_on:
       - postgres
-    command: >
-      bash -c "airflow db init && airflow users create \
-        --username admin \
-        --firstname Ricardo \
-        --lastname Admin \
-        --role Admin \
-        --email admin@example.com \
-        --password admin && airflow webserver & airflow scheduler"
-    networks:
-      - airflow_net
+      - redis
+
+  scheduler:
+    image: apache/airflow:2.5.0
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/credentials/bigquery_keyfile.json
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./credentials:/opt/airflow/credentials # Volume para as credenciais
+    command: bash -c "pip install apache-airflow-providers-google requests beautifulsoup4 pandas && exec airflow scheduler"
+    depends_on:
+      - postgres
+      - redis
+
+  worker:
+    image: apache/airflow:2.5.0
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
+      GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/credentials/bigquery_keyfile.json
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./credentials:/opt/airflow/credentials # Volume para as credenciais
+    command: bash -c "pip install apache-airflow-providers-google requests beautifulsoup4 pandas && exec airflow celery worker"
+    depends_on:
+      - postgres
+      - redis
 
 networks:
-  airflow_net:
+  default:
     driver: bridge
-
-volumes:
-  postgres_data:
-    driver: local
 ```
 
-Este arquivo `docker-compose.yml` define os contêineres do Airflow e do Postgres, especifica a imagem do Airflow, os volumes e as variáveis de ambiente. Certifique-se de substituir `admin@example.com` e `admin` com suas próprias credenciais.
+Este arquivo `docker-compose.yml` define os serviços do Airflow (webserver, scheduler e worker), além do banco de dados PostgreSQL e do broker Redis para o CeleryExecutor. Certifique-se de substituir `bigquery_keyfile.json` pelas suas credenciais do Google Cloud se necessário.
 
 ## Etapa 4: Inicializar o Docker Compose
 
@@ -126,7 +185,7 @@ Use o nome de usuário e senha especificados no `docker-compose.yml` (padrão: `
 Altere as configurações do arquivo `airflow.cfg` para personalizar o comportamento do Airflow, como aumentar o limite de conexões ou ajustar a paralelização. Você pode copiar o arquivo padrão do contêiner:
 
 ```sh
-docker cp airflow_container:/opt/airflow/airflow.cfg ./config/airflow.cfg
+docker cp airflow_webserver_1:/opt/airflow/airflow.cfg ./config/airflow.cfg
 ```
 
 Edite o arquivo conforme as necessidades do seu projeto e monte este arquivo no contêiner:
@@ -185,7 +244,7 @@ Para conectar o Airflow a outras ferramentas e fontes de dados, é necessário c
 Alternativamente, você pode usar a linha de comando dentro do contêiner para configurar conexões:
 
 ```sh
-docker exec -it airflow_container airflow connections add 'my_postgres' --conn-uri 'postgresql+psycopg2://user:password@host:5432/dbname'
+docker exec -it airflow_webserver_1 airflow connections add 'my_postgres' --conn-uri 'postgresql+psycopg2://user:password@host:5432/dbname'
 ```
 
 ## Etapa 9: Configurar Variáveis do Airflow
@@ -199,7 +258,7 @@ Configurar variáveis é importante para armazenar informações sensíveis e qu
 Alternativamente, você pode usar a linha de comando dentro do contêiner:
 
 ```sh
-docker exec -it airflow_container airflow variables set MY_VARIABLE my_value
+docker exec -it airflow_webserver_1 airflow variables set MY_VARIABLE my_value
 ```
 
 ## Etapa 10: Criar Scripts de Backup e Restauração
@@ -209,13 +268,13 @@ Para garantir a segurança dos dados do Airflow, crie scripts para backup e rest
 - **Backup do Banco de Dados PostgreSQL**:
 
 ```sh
-docker exec -t postgres_airflow pg_dumpall -c -U airflow > ./backups/airflow_backup.sql
+docker exec -t postgres pg_dumpall -c -U airflow > ./backups/airflow_backup.sql
 ```
 
 - **Restauração do Banco de Dados PostgreSQL**:
 
 ```sh
-docker exec -i postgres_airflow psql -U airflow -d airflow < ./backups/airflow_backup.sql
+docker exec -i postgres psql -U airflow -d airflow < ./backups/airflow_backup.sql
 ```
 
 ## Etapa 11: Monitorar e Otimizar o Desempenho
@@ -223,7 +282,7 @@ docker exec -i postgres_airflow psql -U airflow -d airflow < ./backups/airflow_b
 - **Monitoramento dos Logs**: Verifique regularmente os logs do Airflow para identificar possíveis erros:
 
 ```sh
-docker-compose logs -f airflow
+docker-compose logs -f webserver
 ```
 
 - **Configurar Alerta por E-mail**: Configure uma conta de e-mail no arquivo `airflow.cfg` para que o Airflow envie alertas em caso de falhas.
@@ -304,7 +363,7 @@ docker-compose up -d
 - **Acessar o Shell do Contêiner**:
 
 ```sh
-docker exec -it airflow_container /bin/bash
+docker exec -it airflow_webserver_1 /bin/bash
 ```
 
 ## Etapa Final: Aprovado?
