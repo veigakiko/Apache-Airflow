@@ -261,6 +261,54 @@ git commit -m "Configuração do Apache Airflow com Docker"
 git push origin main
 ```
 
+## Etapa 14: Comandos do Docker para Atualização, Remoção e Alteração
+
+Aqui estão alguns comandos úteis para gerenciar os contêineres Docker:
+
+- **Atualizar um Serviço do Docker Compose**:
+
+```sh
+docker-compose pull
+# Atualiza a imagem e reinicia o serviço
+docker-compose up -d
+```
+
+- **Remover Contêineres e Volumes**:
+
+```sh
+# Parar e remover todos os contêineres
+docker-compose down
+
+# Parar, remover todos os contêineres e volumes associados
+docker-compose down -v
+```
+
+- **Remover Imagens**:
+
+```sh
+# Listar todas as imagens Docker
+docker images
+
+# Remover uma imagem específica
+docker rmi <IMAGE_ID>
+```
+
+- **Alterar Configurações e Reiniciar**:
+
+Se você fizer alterações no `docker-compose.yml`, precisará reiniciar os contêineres:
+
+```sh
+docker-compose down
+# Em seguida, subir novamente
+docker-compose up -d
+```
+
+- **Acessar o Shell do Contêiner**:
+
+```sh
+docker exec -it airflow_container /bin/bash
+```
+
 ## Etapa Final: Aprovado?
 
 Estas foram todas as etapas para configurar e desenvolver o Apache Airflow usando Docker no Windows 10, seguindo boas práticas de engenharia de dados. Agora gostaria de saber se o passo a passo está aprovado ou se precisa de algum ajuste.
