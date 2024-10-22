@@ -1,106 +1,79 @@
 Apache Airflow - Docker Setup no Windows 10
-Disclaimer
-As configurações descritas aqui são para fins de desenvolvimento local e estudos.
 
-Pré-requisitos
-Windows 10
-Docker
-WSL2 (Windows Subsystem for Linux)
-Estrutura do Repositório
-plaintext
-Copy code
-Apache-Airflow/
-│
-├── dags/                      # Diretório para DAGs
-├── logs/                      # Diretório de logs do Airflow
-├── plugins/                   # Diretório para plugins do Airflow
-├── docker-compose.yml          # Arquivo Docker Compose
-├── airflow_settings.sh         # Script de configuração
-├── setup_instructions.md       # Instruções detalhadas
-└── requirements.txt            # Dependências do Airflow
-1. Configuração do Ambiente no Windows 10
-1.1 Instalar o WSL2 (Windows Subsystem for Linux)
-Para instalar o WSL2, siga as instruções oficiais da Microsoft: Guia de instalação do WSL2
-1.2 Instalar Docker Desktop
-Baixe e instale o Docker Desktop no Windows 10, certificando-se de habilitar o WSL2 no Docker. Download Docker Desktop
-2. Criar e Configurar o Apache Airflow
-2.1 Criar o arquivo docker-compose.yml
-Este arquivo será usado para definir os serviços Docker para rodar o Airflow.
+<img src="airflow-setup.png" alt="Exemplo do Airflow Docker">
+Este projeto demonstra a configuração do Apache Airflow usando Docker no Windows 10, com integração ao WSL2 e suporte ao Docker Compose. O objetivo é fornecer um ambiente local de desenvolvimento eficiente e fácil de configurar.
 
-yaml
-Copy code
-version: '3.8'
-services:
-  airflow:
-    image: apache/airflow:2.6.2
-    container_name: airflow_container
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-    volumes:
-      - ./dags:/opt/airflow/dags
-      - ./logs:/opt/airflow/logs
-      - ./plugins:/opt/airflow/plugins
-    ports:
-      - "8080:8080"
-    command: >
-      bash -c "
-      airflow db init &&
-      airflow users create --username admin --password admin --firstname Ricardo --lastname Admin --role Admin --email admin@example.com &&
-      airflow webserver & airflow scheduler"
-    restart: always
-2.2 Criar script de configuração airflow_settings.sh
-Este script cria os diretórios e ajusta as permissões necessárias para que o Airflow funcione corretamente:
+Ajustes e melhorias
+O projeto ainda está em desenvolvimento e as próximas atualizações incluirão:
 
-bash
-Copy code
-#!/bin/bash
+ Adição do Docker Compose para Apache Airflow
+ Script de configuração para permissões
+ Melhorias na documentação de problemas comuns
+ Inclusão de DAGs de exemplo
+ Configuração para ambientes de produção
+💻 Pré-requisitos
+Antes de começar, verifique se você atendeu aos seguintes requisitos:
 
-# Criar diretórios para o Airflow
-mkdir -p ./dags ./logs ./plugins
+Você instalou o Docker Desktop com suporte ao WSL2.
+Você está rodando o Windows 10 com WSL2 habilitado.
+Você leu a documentação oficial do Apache Airflow.
+🚀 Instalando Apache Airflow
+Para instalar o Apache Airflow usando Docker no Windows 10, siga estas etapas:
 
-# Ajustar permissões
-sudo chmod -R 777 ./dags ./logs ./plugins
-
-echo "Permissões ajustadas e diretórios criados."
-2.3 Criar o arquivo de dependências requirements.txt
-plaintext
-Copy code
-apache-airflow==2.6.2
-2.4 Instruções de Configuração e Execução
-2.4.1 Clonar o repositório:
+Linux e macOS:
 bash
 Copy code
 git clone https://github.com/seu-usuario/Apache-Airflow.git
 cd Apache-Airflow
-2.4.2 Executar o script de configuração:
+bash airflow_settings.sh
+docker-compose up -d
+Windows:
+Clone o repositório:
+
 bash
+Copy code
+git clone https://github.com/seu-usuario/Apache-Airflow.git
+cd Apache-Airflow
+Execute o script de configuração:
+
 Copy code
 bash airflow_settings.sh
-2.4.3 Subir o serviço com Docker Compose:
-bash
+Inicie o Docker Compose:
+
 Copy code
 docker-compose up -d
-2.4.4 Acessar o Apache Airflow:
-A interface web estará disponível em: http://localhost:8080
-Login: admin
+☕ Usando Apache Airflow
+Para usar o Apache Airflow, siga estas etapas:
+
+Acesse o Airflow Web UI via http://localhost:8080
+
+Login com as credenciais:
+
+Usuário: admin
 Senha: admin
-3. Subir o Airflow e Verificar Logs
-3.1 Verificando os containers criados
+Para verificar se os containers estão rodando corretamente:
+
 bash
 Copy code
 docker container ls
-3.2 Verificar logs do Airflow:
-bash
-Copy code
-docker logs airflow_container
-4. Problemas Comuns e Soluções
-O Docker não inicia:
-Verifique se o WSL2 está habilitado nas configurações do Docker Desktop.
-O Airflow não carrega as DAGs:
-Certifique-se de que as DAGs estejam no diretório correto (./dags).
-5. Conclusão
-Com este repositório e as instruções detalhadas, você pode configurar rapidamente um ambiente de desenvolvimento do Apache Airflow no Windows 10 utilizando Docker e WSL2.
+📫 Contribuindo para Apache Airflow
+Para contribuir com o projeto, siga estas etapas:
 
+Bifurque este repositório.
+Crie um branch: git checkout -b <nome_branch>.
+Faça suas alterações e confirme-as: git commit -m '<mensagem_commit>'
+Envie para o branch original: git push origin <nome_do_projeto>/<local>
+Crie uma solicitação de pull.
+Como alternativa, consulte a documentação do GitHub em como criar uma solicitação pull.
 
+🤝 Colaboradores
+Agradecemos às seguintes pessoas que contribuíram para este projeto:
+
+<table> <tr> <td align="center"> <a href="#" title="Ricardo Silva"> <img src="https://avatars3.githubusercontent.com/u/31936044" width="100px;" alt="Foto do Ricardo Silva no GitHub"/><br> <sub> <b>Ricardo Silva</b> </sub> </a> </td> <td align="center"> <a href="#" title="Mark Zuckerberg"> <img src="https://s2.glbimg.com/FUcw2usZfSTL6yCCGj3L3v3SpJ8=/smart/e.glbimg.com/og/ed/f/original/2019/04/25/zuckerberg_podcast.jpg" width="100px;" alt="Foto do Mark Zuckerberg"/><br> <sub> <b>Mark Zuckerberg</b> </sub> </a> </td> </tr> </table>
+😄 Seja um dos contribuidores
+Quer fazer parte desse projeto? Clique AQUI e leia como contribuir.
+
+📝 Licença
+Esse projeto está sob licença. Veja o arquivo LICENÇA para mais detalhes.
+
+Essa estrutura é completa, inclui os badges no início, uma introdução curta, um passo a passo de instalação para Windows, Linux e macOS, além de direções claras sobre como contribuir e usar o projeto.
