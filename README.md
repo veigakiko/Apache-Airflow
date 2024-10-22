@@ -41,8 +41,6 @@ mkdir dags logs plugins config
 No diretório raiz do projeto, crie um arquivo chamado `docker-compose.yml`. Este arquivo define os serviços necessários para executar o Airflow:
 
 ```yaml
-version: '3.8'
-
 services:
   postgres:
     image: postgres:13
