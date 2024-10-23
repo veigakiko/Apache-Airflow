@@ -118,8 +118,8 @@ O arquivo `airflow.cfg` contém configurações importantes para o funcionamento
 No diretório raiz do projeto, crie um arquivo chamado `docker-compose.yml`. Este arquivo define os serviços necessários para executar o Airflow:
 
 ```yaml
-version: '3'
 
+version: '3'
 services:
   postgres:
     image: postgres:13
@@ -191,9 +191,7 @@ services:
       - postgres
       - redis
 
-networks:
-  default:
-    driver: bridge
+
 ```
 
 Este arquivo `docker-compose.yml` define os serviços do Airflow (webserver, scheduler e worker), além do banco de dados PostgreSQL e do broker Redis para o CeleryExecutor. Certifique-se de substituir `bigquery_keyfile.json` pelas suas credenciais do Google Cloud se necessário.
