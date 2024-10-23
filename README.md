@@ -344,7 +344,22 @@ docker-compose down
 Se precisar remover os volumes criados, use:
 
 ```sh
+# Comandos para deletar todos os recursos e recriar do zero
+
+# 1. Pare e remova os containers atuais, incluindo volumes
 docker-compose down -v
+
+# 2. Remova todos os volumes não utilizados
+docker volume prune -f
+
+# 3. Remova todas as imagens locais não utilizadas (opcional, para garantir que não haja resquícios)
+docker image prune -a -f
+
+# 4. Limpe as redes não utilizadas
+docker network prune -f
+
+# 5. Construa e recrie os containers
+docker-compose up --build -d
 ```
 
 ## Solução de Problemas Comuns
